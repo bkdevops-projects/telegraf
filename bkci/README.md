@@ -18,7 +18,7 @@ These invoke Go directly and produce only the platform executable in the Agent `
 
 Native macOS releases should use `COLLECTOR_CGO=1` on a macOS builder to retain the existing Foundation available-capacity correction. Cross-compiling with CGO disabled retains the previous no-CGO fallback, not the Foundation behavior.
 
-Sign the executable using the existing pipeline if required, upload that exact binary to an internal HTTP(S) repository, then update the release manifest with its version, platform URL, SHA-256 and byte size. URLs may be absolute or relative to the manifest. The checksum and size describe the final signed executable, not an archive. The Agent downloads directly into a staging file, verifies it and atomically installs it without unpacking or rewriting. Files must be nonempty and at most 128 MiB. Publish a new version for every content change and make binaries available before publishing the manifest. SHA-256 detects broken transfers, not a full signing/trust system. A repository example and operational details are in the parent project's `docs/agent/collector-release.md`.
+Sign the executable using the existing pipeline if required, upload that exact binary to an internal HTTP(S) repository, then update the release manifest with its version and platform URL. URLs may be absolute or relative to the manifest; optional `sha256`/`size` are checked only when present. The Agent downloads the executable directly and uses it when the download succeeds; failures are logged and retried on the next Agent startup. Publish a new version for every content change and make binaries available before publishing the manifest. A repository example and operational details are in the parent project's `docs/agent/collector-release.md`.
 
 For an offline initial installation copy the executable to:
 
@@ -38,7 +38,7 @@ devops.agent.collector.config=
 devops.agent.collector.cgroup.parent=
 ```
 
-The repository URL must be set to your actual address; no production address is embedded. Without a URL or a bundled/downloaded executable, the optional collector is disabled with a warning and builds continue. Local property changes take effect on the next Agent startup. The backend can override only the manifest URL through `collectorManifestUrl` in heartbeat responses; missing/null preserves the local value and an explicit empty string clears the URL. A heartbeat update never triggers an immediate download or restart. The existing `collectorOn` switch is now persisted and respected.
+The repository URL must be set to your actual address; no production address is embedded. Without a URL or a bundled/downloaded executable, the optional collector is disabled with a warning and builds continue. Local property changes take effect on the next Agent startup. The backend sends the manifest URL configured on the Agent's gateway row as `collectorManifestUrl` in install packages and heartbeat responses; null preserves the local value. A heartbeat update never triggers an immediate download or restart. The existing `collectorOn` switch is now persisted and respected.
 
 `collector.config` defaults to `<workdir>/collector.conf`. An absent default file means no custom inputs. An explicitly configured missing/invalid file is an error rather than silently losing requested metrics. An IP change restarts the existing collector with new startup metadata without another upgrade check.
 
