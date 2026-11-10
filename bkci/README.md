@@ -24,10 +24,10 @@ For an offline initial installation copy the executable to:
 
 
 ```text
-<Agent workdir>/components/telegraf/bundled/bk-ci-collector.exe
+<Agent install dir>/devopsCollector.exe
 ```
 
-Omit `.exe` on Unix. The Agent never overwrites a running executable. Downloaded releases use `components/telegraf/versions/<version>-<digest>/`. Current and previous good versions are retained. Upgrades are checked once at Agent startup, not at every collector restart.
+Omit `.exe` on Unix. Downloads go to `tmp/devopsCollector[.exe]` (with a `.version` file); at startup Agent replaces the root executable when the md5 differs, killing processes running it first, and on Windows renames a still-locked file to `.old`. Only one version is kept, there is no rollback, and upgrades are checked once at Agent startup, not at every collector restart.
 
 ## Agent properties
 
@@ -38,7 +38,7 @@ devops.agent.collector.config=
 devops.agent.collector.cgroup.parent=
 ```
 
-The repository URL must be set to your actual address; no production address is embedded. Without a URL or a bundled/downloaded executable, the optional collector is disabled with a warning and builds continue. Local property changes take effect on the next Agent startup. The backend sends the manifest URL configured on the Agent's gateway row as `collectorManifestUrl` in install packages and heartbeat responses; null preserves the local value. A heartbeat update never triggers an immediate download or restart. The existing `collectorOn` switch is now persisted and respected.
+The repository URL must be set to your actual address; no production address is embedded. Without a URL or an installed executable, the optional collector is disabled with a warning and builds continue. Local property changes take effect on the next Agent startup. The backend sends the manifest URL configured on the Agent's gateway row as `collectorManifestUrl` in install packages and heartbeat responses; null preserves the local value. A heartbeat update never triggers an immediate download or restart. The existing `collectorOn` switch is now persisted and respected.
 
 `collector.config` defaults to `<workdir>/collector.conf`. An absent default file means no custom inputs. An explicitly configured missing/invalid file is an error rather than silently losing requested metrics. An IP change restarts the existing collector with new startup metadata without another upgrade check.
 
@@ -68,7 +68,7 @@ On Linux, when a writable cgroup v2 parent supporting `cgroup.kill` and `clone3`
 
 macOS uses low-priority process groups, `GOMAXPROCS=1`, a 128 MiB Go heap target and a best-effort 256 MiB self RSS watchdog. It does not provide an OS-enforced aggregate hard cap. Script extensions are disabled on macOS in this first implementation; bounded HTTP extensions and system inputs remain available.
 
-The parent closes stdin on normal stop and waits at most 10 seconds before hard termination. The collector has its own 8-second cancellation watchdog for blocked OS/plugin calls. Parent process death on Windows closes the Job Object; on Linux stdin EOF/SIGTERM triggers child cleanup. Every restart waits for old process termination; a stuck teardown never overlaps a second instance. Crash recovery is supervised by Suture v4 with a jittered two-second backoff on every failure and stops after five failures per Agent lifetime. Suture does not replace Job/cgroup containment or release rollback; process cleanup completes before a replacement is allowed. New releases must complete readiness plus 10 seconds of probation before promotion; failed versions are persisted and not downloaded repeatedly. This is a startup health check, not proof that the remote backend is reachable.
+The parent closes stdin on normal stop and waits at most 10 seconds before hard termination. The collector has its own 8-second cancellation watchdog for blocked OS/plugin calls. Parent process death on Windows closes the Job Object; on Linux stdin EOF/SIGTERM triggers child cleanup. Every restart waits for old process termination; a stuck teardown never overlaps a second instance. Crash recovery is supervised by Suture v4 with a jittered two-second backoff on every failure and stops after five failures per Agent lifetime. Suture does not replace Job/cgroup containment; process cleanup completes before a replacement is allowed. Readiness only proves the collector started, not that the remote backend is reachable.
 
 ## Logs and diagnosis
 
@@ -91,6 +91,6 @@ go test -p 2 -short -tags bkci_lite ./internal/bkci/... ./cmd/bk-ci-collector
 go test -p 2 -short -tags out,bkci_lite ./internal/bkci/... ./cmd/bk-ci-collector
 ```
 
-Tests cover migrated system/Windows/LHM algorithms, old wire-contract oracles, actual native HTTP output against a loopback server, snapshot filtering, Prometheus-to-env mapping, response bounds and script timeout. Agent-side `component` tests cover download/length/checksum, rollback/rejected releases, state retention, readiness and stdin EOF. An explicit `BKCI_TEST_COLLECTOR` environment variable enables the real subprocess-to-loopback-backend test; it never connects to a production BK-CI endpoint.
+Tests cover migrated system/Windows/LHM algorithms, old wire-contract oracles, actual native HTTP output against a loopback server, snapshot filtering, Prometheus-to-env mapping, response bounds and script timeout. Agent-side `component` tests cover download to `tmp/`, optional length/checksum, replacing a running executable, readiness and stdin EOF. An explicit `BKCI_TEST_COLLECTOR` environment variable enables the real subprocess-to-loopback-backend test; it never connects to a production BK-CI endpoint.
 
 Before production rollout additionally test Linux delegation and macOS native-CGO behavior on target hosts, actual backend compatibility, all supported hardware classes, Agent service stop/uninstall/self-upgrade, low disk space, parent force-kill and descendant cleanup, and long-running CPU/RSS profiles under build load. A local Windows compile/test is not a substitute for this platform rollout matrix.
