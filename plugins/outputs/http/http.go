@@ -1,3 +1,5 @@
+//go:build !bkci_lite
+
 //go:generate ../../../tools/config_includer/generator
 //go:generate ../../../tools/readme_config_includer/generator
 package http
@@ -247,7 +249,7 @@ func (h *HTTP) writeMetric(reqBody []byte) error {
 		return fmt.Errorf("when writing to [%s] received status code: %d. body: %s", h.URL, resp.StatusCode, errorLine)
 	}
 
-	_, err = io.ReadAll(resp.Body)
+	_, err = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
 		return fmt.Errorf("when writing to [%s] received error: %w", h.URL, err)
 	}

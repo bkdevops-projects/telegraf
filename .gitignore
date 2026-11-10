@@ -22,3 +22,7 @@ process.yml
 resource.syso
 versioninfo.json
 .uuid
+
+/bin/
+/dist/
+/bkci/__pycache__/

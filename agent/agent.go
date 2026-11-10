@@ -26,6 +26,8 @@ import (
 // Agent runs a set of plugins.
 type Agent struct {
 	Config *config.Config
+	// OnReady is called after outputs and inputs have initialized successfully.
+	OnReady func()
 }
 
 // NewAgent returns an Agent for the given Config.
@@ -170,6 +172,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	iu, err := a.startInputs(next, a.Config.Inputs)
 	if err != nil {
 		return err
+	}
+	if a.OnReady != nil {
+		a.OnReady()
 	}
 
 	var wg sync.WaitGroup
